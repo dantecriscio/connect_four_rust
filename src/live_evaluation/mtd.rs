@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use crate::board::{Position, GAME_HEIGHT, GAME_WIDTH};
 use crate::live_evaluation::transposition_table::TranspositionTable;
 use crate::live_evaluation::null_window_search::NullWindowSearch;
@@ -12,17 +14,17 @@ pub(crate) const MAX_MOVES_PLAYED: i8 = (GAME_WIDTH * GAME_HEIGHT) as i8;
 /// Theoretically similar to https://www.chessprogramming.org/MTD(f) but without the f parameter
 pub struct Solver {
     pub transposition_table: TranspositionTable,
-    pub node_count: u64,
+    pub node_count: Cell<u64>,
 }
 
 impl Solver {
     pub fn new() -> Self {
-        Self { transposition_table: TranspositionTable::new(), node_count: 0 }
+        Self { transposition_table: TranspositionTable::new(), node_count: Cell::new(0) }
     }
 
-    pub fn reset(&mut self) {
+    pub fn reset(&self) {
         self.transposition_table.reset();
-        self.node_count = 0;
+        self.node_count.set(0);
     }
 
     /// Evaluates the score a position
@@ -32,10 +34,10 @@ impl Solver {
     ///
     /// # Return Value:
     /// - Exact Score of the position
-    pub fn solve(&mut self, position: Position) -> i8 {
-        let mut null_window_search = NullWindowSearch {
-            transposition_table: &mut self.transposition_table,
-            node_count: &mut self.node_count,
+    pub fn solve(&self, position: Position) -> i8 {
+        let null_window_search = NullWindowSearch {
+            transposition_table: &self.transposition_table,
+            node_count: &self.node_count,
         };
 
         // Check if we can win in one move on this turn, as Negamax will now assume that we cannot

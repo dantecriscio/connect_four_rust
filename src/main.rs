@@ -9,7 +9,7 @@ use board::Position;
 use crate::{board::PlayColumnError, live_evaluation::Solver};
 
 fn main() -> Result<()>{
-    let mut solver = Solver::new();
+    let solver = Solver::new();
 
     println!("columns,score,nodes,time_us");
 
@@ -31,7 +31,7 @@ fn main() -> Result<()>{
             .with_context(|| format!("Got negative time duration after evaluating {}", line))?
             .as_micros();
 
-        println!("{},{},{},{}", columns, actual_eval, solver.node_count, duration_micros);
+        println!("{},{},{},{}", columns, actual_eval, solver.node_count.get(), duration_micros);
 
         solver.reset();
     }

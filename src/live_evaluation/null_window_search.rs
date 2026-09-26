@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use crate::board::Position;
 use crate::live_evaluation::mtd::MAX_MOVES_PLAYED;
 use crate::live_evaluation::transposition_table::{TableKey, TableResult, TranspositionTable};
@@ -5,8 +7,8 @@ use crate::live_evaluation::transposition_table::{TableKey, TableResult, Transpo
 /// Null window search itself is a specific instance of
 /// Alpha-Beta pruning (negamax variant) where (alpha + 1 = beta).
 pub(crate) struct NullWindowSearch<'a> {
-    pub(crate) transposition_table: &'a mut TranspositionTable,
-    pub(crate) node_count: &'a mut u64,
+    pub(crate) transposition_table: &'a TranspositionTable,
+    pub(crate) node_count: &'a Cell<u64>,
 }
 
 /*
@@ -43,8 +45,8 @@ impl NullWindowSearch<'_> {
     /// # This Function Return Values:
     ///  - if `actual_score <= alpha`, then `actual_score <= return_value <= alpha`
     ///  - if `actual_score > alpha`, then `alpha < return_value <= actual score`
-    pub(crate) fn search(&mut self, position: Position, alpha: i8) -> i8 {
-        *self.node_count += 1; 
+    pub(crate) fn search(&self, position: Position, alpha: i8) -> i8 {
+        self.node_count.update(|x| x + 1); 
 
         if position.all_moves_immediately_lose() {
             // Uses the assumption that the current player cannot win in one move

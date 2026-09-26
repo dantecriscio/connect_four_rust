@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use crate::board::bitmap::{BITMAP_COLUMN_HEIGHT, BITMAP_ROW_WIDTH};
 use crate::board::key_methods::PositionKey;
 use crate::live_evaluation::mtd::{MAXIMUM_SCORE, NEGATED_MINIMUM_SCORE};
@@ -84,36 +86,36 @@ pub enum TableResult {
 }
 
 pub struct TranspositionTable {
-    truncated_keys: Vec<TruncatedKey>,
-    saved_values: Vec<TableValue>,
+    truncated_keys: Box<[Cell<TruncatedKey>]>,
+    saved_values: Box<[Cell<TableValue>]>,
 }
 
 impl TranspositionTable {
     pub fn new() -> Self {
         Self {
-            truncated_keys: vec![0; TABLE_SIZE],
-            saved_values: vec![0; TABLE_SIZE],
+            truncated_keys: vec![Cell::new(0); TABLE_SIZE].into_boxed_slice(),
+            saved_values: vec![Cell::new(0); TABLE_SIZE].into_boxed_slice(),
         }
     }
 
-    pub fn put_upper_bound(&mut self, table_key: TableKey, upper_bound: i8) {
+    pub fn put_upper_bound(&self, table_key: TableKey, upper_bound: i8) {
         let saved_value = (upper_bound + STORED_UPPER_BOUND_OFFSET as i8) as u8;
-        self.truncated_keys[table_key.table_index as usize] = table_key.truncated_key;
-        self.saved_values[table_key.table_index as usize] = saved_value;
+        self.truncated_keys[table_key.table_index as usize].set(table_key.truncated_key);
+        self.saved_values[table_key.table_index as usize].set(saved_value);
     }
 
-    pub fn put_lower_bound(&mut self, table_key: TableKey, lower_bound: i8) {
+    pub fn put_lower_bound(&self, table_key: TableKey, lower_bound: i8) {
         let saved_value = (lower_bound + STORED_LOWER_BOUND_OFFSET as i8) as u8;
-        self.truncated_keys[table_key.table_index as usize] = table_key.truncated_key;
-        self.saved_values[table_key.table_index as usize] = saved_value;
+        self.truncated_keys[table_key.table_index as usize].set(table_key.truncated_key);
+        self.saved_values[table_key.table_index as usize].set(saved_value);
     }
 
     pub fn get(&self, table_key: TableKey) -> TableResult {
-        let saved_truncated_key = self.truncated_keys[table_key.table_index as usize];
+        let saved_truncated_key = self.truncated_keys[table_key.table_index as usize].get();
         if saved_truncated_key != table_key.truncated_key {
             return TableResult::Miss;
         }
-        let saved_value = self.saved_values[table_key.table_index as usize];
+        let saved_value = self.saved_values[table_key.table_index as usize].get();
         match saved_value {
             0 => TableResult::Miss,
             1..=MAX_STORED_UPPER_BOUND => TableResult::UpperBound(
@@ -128,9 +130,9 @@ impl TranspositionTable {
         }
     }
 
-    pub fn reset(&mut self) {
-        self.truncated_keys.fill(0);
-        self.saved_values.fill(0);
+    pub fn reset(&self) {
+        for truncated_key in &self.truncated_keys { truncated_key.set(0); };
+        for saved_value in &self.saved_values { saved_value.set(0); };
     }
 }
 
@@ -147,7 +149,7 @@ mod tests {
 
 	#[test]
     fn test_put_and_get_lower_bound() {
-        let mut table = TranspositionTable::new();
+        let table = TranspositionTable::new();
         let dummy_table_key = TableKey::from(0);
         let dummy_bound = 1;
 
@@ -157,7 +159,7 @@ mod tests {
 
 	#[test]
     fn test_put_and_get_upper_bound() {
-        let mut table = TranspositionTable::new();
+        let table = TranspositionTable::new();
         let dummy_table_key = TableKey::from(0);
         let dummy_bound = 1;
 
@@ -167,7 +169,7 @@ mod tests {
 
 	#[test]
     fn test_collision_picks_later() {
-        let mut table = TranspositionTable::new();
+        let table = TranspositionTable::new();
         let dummy_table_key = TableKey::from(0);
         let dummy_bound = 1;
 
@@ -181,7 +183,7 @@ mod tests {
 
 	#[test]
     fn test_reset_causes_miss() {
-        let mut table = TranspositionTable::new();
+        let table = TranspositionTable::new();
         let dummy_table_key = TableKey::from(0);
         let dummy_bound = 1;
 
