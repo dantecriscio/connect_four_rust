@@ -37,14 +37,7 @@ impl NullWindowSearch<'_> {
     /// - No one has already won the game
     /// - The current player cannot simply win in one move
     ///
-    /// # Normal Alpha-Beta Return Values:
-    ///  - if `actual_score <= alpha`, then `actual_score <= return_value <= alpha`
-    ///  - if `actual_score >= beta`, then `beta <= return_value <= actual_score`
-    ///  - if `alpha < actual_score < beta`, then `return_value == actual_score`
-    ///
-    /// # This Function Return Values:
-    ///  - if `actual_score <= alpha`, then `actual_score <= return_value <= alpha`
-    ///  - if `actual_score > alpha`, then `alpha < return_value <= actual score`
+    /// See null_window.md for more information
     pub(crate) fn search(&self, position: Position, alpha: i8) -> i8 {
         self.node_count.update(|x| x + 1); 
 

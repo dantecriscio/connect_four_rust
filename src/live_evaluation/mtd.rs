@@ -12,6 +12,7 @@ pub(crate) const MAX_MOVES_PLAYED: i8 = (GAME_WIDTH * GAME_HEIGHT) as i8;
 
 
 /// Theoretically similar to https://www.chessprogramming.org/MTD(f) but without the f parameter
+/// Also see mtdf.md for more information
 pub struct Solver {
     pub transposition_table: TranspositionTable,
     pub node_count: Cell<u64>,
