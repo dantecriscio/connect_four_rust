@@ -41,7 +41,8 @@ impl NullWindowSearch<'_> {
     pub(crate) fn search(&self, position: Position, alpha: i8) -> i8 {
         self.node_count.update(|x| x + 1); 
 
-        if position.all_moves_immediately_lose() {
+        let non_losing = position.get_possible_non_losing_moves();
+        if non_losing == 0 {
             // Uses the assumption that the current player cannot win in one move
             // In this scenario the current player plays and then the opponent wins
             return -(MAX_MOVES_PLAYED - position.moves_played as i8) / 2;
@@ -71,7 +72,7 @@ impl NullWindowSearch<'_> {
         if alpha < min { return min; }
 
         // The recursive cases
-        for child_position in position.get_non_losing_child_positions() {
+        for child_position in position.get_sorted_child_positions(non_losing) {
             let score = -self.search(child_position, -(alpha + 1));
             // Pruning case
             if score > alpha {

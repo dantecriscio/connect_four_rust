@@ -8,12 +8,27 @@ impl Position {
         self.get_current_player_winning_positions() & self.get_playable_squares() != 0
     }
 
-    pub(crate) fn all_moves_immediately_lose(&self) -> bool {
-        self.possible_non_losing_moves() == 0
+    pub(crate) fn get_possible_non_losing_moves(&self) -> Bitmap {
+        let mut possible_moves = self.get_playable_squares();
+        let opponent_win_squares = self.get_opponent_winning_positions();
+        let forced_moves = possible_moves & opponent_win_squares;
+
+        if forced_moves != 0 {
+            // This indicates that there are multiple forced moves, so we lose
+            if forced_moves & (forced_moves - 1) != 0 {
+                return 0;
+            }
+            possible_moves = forced_moves;
+        }
+
+        /* At this point, possibleMoves is one of two cases:
+        Case 1: There are no forced moves, so possibleMoves is just all playable columns
+        Case 2: There is a single forced move, so possibleMoves is that one move
+        We now want to remove any moves which "build up" and reveal a new winning move to the opponent */
+        possible_moves & !(opponent_win_squares >> 1)
     }
 
-    pub(crate) fn get_non_losing_child_positions(&self) -> impl Iterator<Item = Position> {
-        let non_losing = self.possible_non_losing_moves();
+    pub(crate) fn get_sorted_child_positions(&self, non_losing: Bitmap) -> ScoredPositionIterator {
         let mut sorted_child_position_iterator = ScoredPositionIterator::new();
 
         // Iterate through each column in columnOrder in reverse order, adding to the sorter
@@ -35,26 +50,6 @@ impl Position {
 impl Position {
     fn get_current_player_winning_positions(&self) -> Bitmap {
         Self::compute_winning_positions(self.current_player_stones, self.both_players_mask)
-    }
-
-    fn possible_non_losing_moves(&self) -> Bitmap {
-        let mut possible_moves = self.get_playable_squares();
-        let opponent_win_squares = self.get_opponent_winning_positions();
-        let forced_moves = possible_moves & opponent_win_squares;
-
-        if forced_moves != 0 {
-            // This indicates that there are multiple forced moves, so we lose
-            if forced_moves & (forced_moves - 1) != 0 {
-                return 0;
-            }
-            possible_moves = forced_moves;
-        }
-
-        /* At this point, possibleMoves is one of two cases:
-        Case 1: There are no forced moves, so possibleMoves is just all playable columns
-        Case 2: There is a single forced move, so possibleMoves is that one move
-        We now want to remove any moves which "build up" and reveal a new winning move to the opponent */
-        possible_moves & !(opponent_win_squares >> 1)
     }
 
     fn get_playable_squares(&self) -> Bitmap {
@@ -224,27 +219,23 @@ mod tests {
     #[test]
     fn test_possible_non_losing_moves() {
         // Every Move is playable
-        assert_eq!(0x40810204081, BLANK_POSITION.possible_non_losing_moves());
-        assert!(!BLANK_POSITION.all_moves_immediately_lose());
+        assert_eq!(0x40810204081, BLANK_POSITION.get_possible_non_losing_moves());
 
         // The playable moves are simply non-full columns
         let mut complex_position = COMPLEX_POSITION;
         complex_position.play_column(5);
         complex_position.play_column(6);
-        assert_eq!(0x80204001008, complex_position.possible_non_losing_moves());
-        assert!(!complex_position.all_moves_immediately_lose());
+        assert_eq!(0x80204001008, complex_position.get_possible_non_losing_moves());
 
         // The only playable move blocks an opponent's winning move
         let mut vertical = VERTICAL;
         vertical.play_column(1);
-        assert_eq!(0x8, vertical.possible_non_losing_moves());
-        assert!(!vertical.all_moves_immediately_lose());
+        assert_eq!(0x8, vertical.get_possible_non_losing_moves());
 
         // Opponent can win in two spots, so we are done
         let mut horizontal = HORIZONTAL;
         horizontal.play_column(0);
-        assert_eq!(0x0, horizontal.possible_non_losing_moves());
-        assert!(horizontal.all_moves_immediately_lose());
+        assert_eq!(0x0, horizontal.get_possible_non_losing_moves());
 
         // Do not build under an opponent and let them win
         horizontal.play_column(1);
@@ -252,17 +243,14 @@ mod tests {
         horizontal.play_column(5);
         horizontal.play_column(5);
         horizontal.play_column(3);
-        assert_eq!(0x42001000202, horizontal.possible_non_losing_moves());
-        assert!(!horizontal.all_moves_immediately_lose());
+        assert_eq!(0x42001000202, horizontal.get_possible_non_losing_moves());
 
         // You play a move to block a direct win, but that builds under a different win
         horizontal.play_column(6);
         horizontal.play_column(2);
         horizontal.play_column(6);
         horizontal.play_column(1);
-        assert_eq!(0x0, horizontal.possible_non_losing_moves());
-        assert!(horizontal.all_moves_immediately_lose());
-
+        assert_eq!(0x0, horizontal.get_possible_non_losing_moves());
     }
 
     #[test]
@@ -286,7 +274,9 @@ mod tests {
                 first_move_played.play_column(col);
                 first_move_played})
             .collect();
-        let actual: Vec<Position> = BLANK_POSITION.get_non_losing_child_positions().collect();
+        let actual: Vec<Position> = BLANK_POSITION
+            .get_sorted_child_positions(BLANK_POSITION.get_possible_non_losing_moves())
+            .collect();
         assert_eq!(expected_middle_out, actual);
     }
 
@@ -300,7 +290,9 @@ mod tests {
                 fifth_move_played.play_column(col);
                 fifth_move_played})
             .collect();
-        let actual: Vec<Position> = PRE_HORIZONTAL.get_non_losing_child_positions().collect();
+        let actual: Vec<Position> = PRE_HORIZONTAL
+            .get_sorted_child_positions(PRE_HORIZONTAL.get_possible_non_losing_moves())
+            .collect();
         assert_eq!(expected_child_positions, actual);
     }
 
@@ -314,7 +306,9 @@ mod tests {
                 seventh_move_played.play_column(col);
                 seventh_move_played})
             .collect();
-        let actual: Vec<Position> = MIDDLE_COLUMN_FULL.get_non_losing_child_positions().collect();
+        let actual: Vec<Position> = MIDDLE_COLUMN_FULL
+            .get_sorted_child_positions(MIDDLE_COLUMN_FULL.get_possible_non_losing_moves())
+            .collect();
         assert_eq!(expected_child_positions, actual);
     }
 }
