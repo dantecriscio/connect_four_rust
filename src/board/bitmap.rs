@@ -36,13 +36,8 @@ pub(crate) fn compute_bitmap_column_mask(col: u8) -> Bitmap {
     (1 << BITMAP_COLUMN_HEIGHT) - 1 << col * BITMAP_COLUMN_HEIGHT
 }
 
-pub(crate) fn count_ones_in_bitmap(mut bitmap: Bitmap) -> u8 {
-    let mut count = 0;
-    while bitmap != 0 {
-        bitmap &= bitmap - 1;
-        count += 1;
-    }
-    count
+pub(crate) fn count_ones_in_bitmap(bitmap: Bitmap) -> u8 {
+    bitmap.count_ones() as u8
 }
 
 #[cfg(test)]
