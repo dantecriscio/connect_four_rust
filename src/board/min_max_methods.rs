@@ -1,6 +1,9 @@
-use crate::board::scored_position_iterator::{ScoredPositionIterator, OUTSIDE_IN_COLUMN_ORDER};
-use crate::board::{bitmap, Bitmap, Position};
-use crate::board::bitmap::{BITMAP_COLUMN_HEIGHT, BOTTOM_ROW_MASK, DOWN_LEFT_UP_RIGHT_OFFSET, PLAYABLE_BOARD_MASK, UP_LEFT_DOWN_RIGHT_OFFSET};
+use crate::board::bitmap::{
+    BITMAP_COLUMN_HEIGHT, BOTTOM_ROW_MASK, DOWN_LEFT_UP_RIGHT_OFFSET, PLAYABLE_BOARD_MASK,
+    UP_LEFT_DOWN_RIGHT_OFFSET,
+};
+use crate::board::scored_position_iterator::{OUTSIDE_IN_COLUMN_ORDER, ScoredPositionIterator};
+use crate::board::{Bitmap, Position, bitmap};
 
 // Directly called by the null window search
 impl Position {
@@ -57,7 +60,10 @@ impl Position {
     }
 
     fn move_score(&self, square: Bitmap) -> u8 {
-        bitmap::count_ones_in_bitmap(Self::compute_winning_positions(square | self.current_player_stones, self.both_players_mask))
+        bitmap::count_ones_in_bitmap(Self::compute_winning_positions(
+            square | self.current_player_stones,
+            self.both_players_mask,
+        ))
     }
 
     // square is a bitmap with a single 1 where you want the new token to be placed
@@ -70,25 +76,33 @@ impl Position {
         self.moves_played += 1;
     }
 
-
     fn get_opponent_winning_positions(&self) -> Bitmap {
-        Self::compute_winning_positions(self.current_player_stones ^ self.both_players_mask, self.both_players_mask)
+        Self::compute_winning_positions(
+            self.current_player_stones ^ self.both_players_mask,
+            self.both_players_mask,
+        )
     }
 
-    fn compute_winning_positions(current_player_stones: Bitmap, both_players_mask: Bitmap) -> Bitmap {
+    fn compute_winning_positions(
+        current_player_stones: Bitmap,
+        both_players_mask: Bitmap,
+    ) -> Bitmap {
         // Vertical
-        let mut winning = current_player_stones << 1 & current_player_stones << 2 & current_player_stones << 3;
+        let mut winning =
+            current_player_stones << 1 & current_player_stones << 2 & current_player_stones << 3;
 
         // Horizontal
         // We will redefine pair many times, right now it means there are a pair of 1's to the left
-        let mut pair = current_player_stones << BITMAP_COLUMN_HEIGHT & current_player_stones << 2 * BITMAP_COLUMN_HEIGHT;
+        let mut pair = current_player_stones << BITMAP_COLUMN_HEIGHT
+            & current_player_stones << 2 * BITMAP_COLUMN_HEIGHT;
 
         // Compute three to the left, then two left and one right
         winning |= pair & current_player_stones << 3 * BITMAP_COLUMN_HEIGHT;
         winning |= pair & current_player_stones >> BITMAP_COLUMN_HEIGHT;
 
         // Now, pair means there are a pair of 1's to the right
-        pair = current_player_stones >> BITMAP_COLUMN_HEIGHT & current_player_stones >> 2 * BITMAP_COLUMN_HEIGHT;
+        pair = current_player_stones >> BITMAP_COLUMN_HEIGHT
+            & current_player_stones >> 2 * BITMAP_COLUMN_HEIGHT;
 
         // Compute three to the right, then two right and one left
         winning |= pair & current_player_stones >> 3 * BITMAP_COLUMN_HEIGHT;
@@ -96,14 +110,16 @@ impl Position {
 
         // Up-Left-Down-Right Diagonal
         // Now, pair means there are a pair of 1's up-left
-        pair = current_player_stones << UP_LEFT_DOWN_RIGHT_OFFSET & current_player_stones << 2 * UP_LEFT_DOWN_RIGHT_OFFSET;
+        pair = current_player_stones << UP_LEFT_DOWN_RIGHT_OFFSET
+            & current_player_stones << 2 * UP_LEFT_DOWN_RIGHT_OFFSET;
 
         // Compute 3 up-left, then two up-left and one down-right
         winning |= pair & current_player_stones << 3 * UP_LEFT_DOWN_RIGHT_OFFSET;
         winning |= pair & current_player_stones >> UP_LEFT_DOWN_RIGHT_OFFSET;
 
         // Now, pair means there are a pair of 1's down-right
-        pair = current_player_stones >> UP_LEFT_DOWN_RIGHT_OFFSET & current_player_stones >> 2 * UP_LEFT_DOWN_RIGHT_OFFSET;
+        pair = current_player_stones >> UP_LEFT_DOWN_RIGHT_OFFSET
+            & current_player_stones >> 2 * UP_LEFT_DOWN_RIGHT_OFFSET;
 
         // Compute 3 down-right, then two down-right and one up-left
         winning |= pair & current_player_stones >> 3 * UP_LEFT_DOWN_RIGHT_OFFSET;
@@ -111,14 +127,16 @@ impl Position {
 
         // Down-Left-Up-Right Diagonal
         // Now, pair means there are a pair of 1's down-left
-        pair = current_player_stones << DOWN_LEFT_UP_RIGHT_OFFSET & current_player_stones << 2 * DOWN_LEFT_UP_RIGHT_OFFSET;
+        pair = current_player_stones << DOWN_LEFT_UP_RIGHT_OFFSET
+            & current_player_stones << 2 * DOWN_LEFT_UP_RIGHT_OFFSET;
 
         // Compute three down-left, then two down-left and one up-right
         winning |= pair & current_player_stones << 3 * DOWN_LEFT_UP_RIGHT_OFFSET;
         winning |= pair & current_player_stones >> DOWN_LEFT_UP_RIGHT_OFFSET;
 
         // Now, pair means there are a pair of 1's up-right
-        pair = current_player_stones >> DOWN_LEFT_UP_RIGHT_OFFSET & current_player_stones >> 2 * DOWN_LEFT_UP_RIGHT_OFFSET;
+        pair = current_player_stones >> DOWN_LEFT_UP_RIGHT_OFFSET
+            & current_player_stones >> 2 * DOWN_LEFT_UP_RIGHT_OFFSET;
 
         // Compute three up-right, then two up-right and one down-left
         winning |= pair & current_player_stones >> 3 * DOWN_LEFT_UP_RIGHT_OFFSET;
@@ -129,11 +147,13 @@ impl Position {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use crate::board::scored_position_iterator::INSIDE_OUT_COLUMN_ORDER;
-    use crate::board::testing_constants::{BLANK_POSITION, COMPLEX_POSITION, DOWN_LEFT_UP_RIGHT_DIAGONAL, HORIZONTAL, MIDDLE_COLUMN_FULL, PRE_HORIZONTAL, UP_LEFT_DOWN_RIGHT_DIAGONAL, VERTICAL};
+    use crate::board::testing_constants::{
+        BLANK_POSITION, COMPLEX_POSITION, DOWN_LEFT_UP_RIGHT_DIAGONAL, HORIZONTAL,
+        MIDDLE_COLUMN_FULL, PRE_HORIZONTAL, UP_LEFT_DOWN_RIGHT_DIAGONAL, VERTICAL,
+    };
     use crate::board::{EndState, GameState};
 
     use super::*;
@@ -144,7 +164,9 @@ mod tests {
 
         let mut plays_winning_column = either_player_can_win;
         plays_winning_column.play_column(0);
-        assert!(plays_winning_column.get_game_state() == GameState::Ended(EndState::PriorPlayerWon));
+        assert!(
+            plays_winning_column.get_game_state() == GameState::Ended(EndState::PriorPlayerWon)
+        );
 
         let mut plays_losing_square = either_player_can_win;
         // Corresponds to playing the 3rd column
@@ -219,13 +241,19 @@ mod tests {
     #[test]
     fn test_possible_non_losing_moves() {
         // Every Move is playable
-        assert_eq!(0x40810204081, BLANK_POSITION.get_possible_non_losing_moves());
+        assert_eq!(
+            0x40810204081,
+            BLANK_POSITION.get_possible_non_losing_moves()
+        );
 
         // The playable moves are simply non-full columns
         let mut complex_position = COMPLEX_POSITION;
         complex_position.play_column(5);
         complex_position.play_column(6);
-        assert_eq!(0x80204001008, complex_position.get_possible_non_losing_moves());
+        assert_eq!(
+            0x80204001008,
+            complex_position.get_possible_non_losing_moves()
+        );
 
         // The only playable move blocks an opponent's winning move
         let mut vertical = VERTICAL;
@@ -268,11 +296,13 @@ mod tests {
 
     #[test]
     fn test_blank_position_iterates_middle_out() {
-        let expected_middle_out: Vec<Position> = INSIDE_OUT_COLUMN_ORDER.into_iter()
+        let expected_middle_out: Vec<Position> = INSIDE_OUT_COLUMN_ORDER
+            .into_iter()
             .map(|col| {
                 let mut first_move_played = BLANK_POSITION;
                 first_move_played.play_column(col);
-                first_move_played})
+                first_move_played
+            })
             .collect();
         let actual: Vec<Position> = BLANK_POSITION
             .get_sorted_child_positions(BLANK_POSITION.get_possible_non_losing_moves())
@@ -284,11 +314,13 @@ mod tests {
     fn test_child_positions_prefer_alignments() {
         let expected_column_order = [4, 1, 5, 0, 3, 2, 6];
 
-        let expected_child_positions: Vec<Position> = expected_column_order.into_iter()
+        let expected_child_positions: Vec<Position> = expected_column_order
+            .into_iter()
             .map(|col| {
                 let mut fifth_move_played = PRE_HORIZONTAL;
                 fifth_move_played.play_column(col);
-                fifth_move_played})
+                fifth_move_played
+            })
             .collect();
         let actual: Vec<Position> = PRE_HORIZONTAL
             .get_sorted_child_positions(PRE_HORIZONTAL.get_possible_non_losing_moves())
@@ -300,11 +332,13 @@ mod tests {
     fn test_child_positions_iterator_skips_full_columns() {
         let expected_column_order = [2, 4, 1, 5, 0, 6];
 
-        let expected_child_positions: Vec<Position> = expected_column_order.into_iter()
+        let expected_child_positions: Vec<Position> = expected_column_order
+            .into_iter()
             .map(|col| {
                 let mut seventh_move_played = MIDDLE_COLUMN_FULL;
                 seventh_move_played.play_column(col);
-                seventh_move_played})
+                seventh_move_played
+            })
             .collect();
         let actual: Vec<Position> = MIDDLE_COLUMN_FULL
             .get_sorted_child_positions(MIDDLE_COLUMN_FULL.get_possible_non_losing_moves())
@@ -312,4 +346,3 @@ mod tests {
         assert_eq!(expected_child_positions, actual);
     }
 }
-

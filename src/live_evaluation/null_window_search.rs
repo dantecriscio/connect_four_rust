@@ -28,7 +28,6 @@ TODO: Also consider consider swapping the upper bound encoding and the lower bou
     Will need to time it. Pretty sure it is more common to have an lower bound.
 */
 impl NullWindowSearch<'_> {
-
     /// Evaluates the score a position using alpha beta, algorithm.
     /// But, it assumes a null window, so `beta == alpha + 1`
     ///
@@ -39,7 +38,7 @@ impl NullWindowSearch<'_> {
     ///
     /// See null_window.md for more information
     pub(crate) fn search(&self, position: Position, alpha: i8) -> i8 {
-        self.node_count.update(|x| x + 1); 
+        self.node_count.update(|x| x + 1);
 
         let non_losing = position.get_possible_non_losing_moves();
         if non_losing == 0 {
@@ -59,17 +58,25 @@ impl NullWindowSearch<'_> {
         // Use the transposition table to get potentially tighter bounds
         let table_key = TableKey::from(position.get_key());
         match self.transposition_table.get(table_key) {
-            TableResult::Miss => {},
+            TableResult::Miss => {}
             TableResult::LowerBound(lower_bound) => {
-                if lower_bound > min { min = lower_bound }
-            },
+                if lower_bound > min {
+                    min = lower_bound
+                }
+            }
             TableResult::UpperBound(upper_bound) => {
-                if upper_bound < max { max = upper_bound }
-            },
+                if upper_bound < max {
+                    max = upper_bound
+                }
+            }
         }
 
-        if alpha >= max { return max; }
-        if alpha < min { return min; }
+        if alpha >= max {
+            return max;
+        }
+        if alpha < min {
+            return min;
+        }
 
         // The recursive cases
         for child_position in position.get_sorted_child_positions(non_losing) {

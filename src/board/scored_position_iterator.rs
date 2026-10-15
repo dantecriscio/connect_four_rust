@@ -1,6 +1,6 @@
 use std::{mem::MaybeUninit, usize};
 
-use crate::board::{Position, GAME_WIDTH};
+use crate::board::{GAME_WIDTH, Position};
 
 // Odd number example [3, 2, 4, 1, 5, 0, 6]
 // Even number example [4, 3, 5, 2, 6, 1, 7, 0]
@@ -11,7 +11,9 @@ pub(crate) const INSIDE_OUT_COLUMN_ORDER: [u8; GAME_WIDTH as usize] = {
 
     let mut i = 0;
     while i < GAME_WIDTH {
-        if i % 2 == 1 { offset_from_middle += 1; }
+        if i % 2 == 1 {
+            offset_from_middle += 1;
+        }
 
         let column = if i % 2 == 0 {
             middle_column + offset_from_middle
@@ -55,7 +57,11 @@ pub(crate) struct ScoredPositionIterator {
 
 impl ScoredPositionIterator {
     pub(crate) fn new() -> Self {
-        Self { entries: [MaybeUninit::uninit(); GAME_WIDTH as usize], start_inclusive: 0, end_exclusive: 0 }
+        Self {
+            entries: [MaybeUninit::uninit(); GAME_WIDTH as usize],
+            start_inclusive: 0,
+            end_exclusive: 0,
+        }
     }
 
     pub(crate) fn add(&mut self, child_position: Position, score: u8) {
@@ -63,13 +69,18 @@ impl ScoredPositionIterator {
         let mut vacant_index = self.end_exclusive as usize;
 
         // As long as the previous entry is strictly bigger, shift that right once
-        while vacant_index > self.start_inclusive as usize && unsafe { self.entries[vacant_index - 1].assume_init().score } > score {
+        while vacant_index > self.start_inclusive as usize
+            && unsafe { self.entries[vacant_index - 1].assume_init().score } > score
+        {
             self.entries[vacant_index] = self.entries[vacant_index - 1];
             vacant_index -= 1;
         }
 
         // Place our entry at the now empty spot
-        self.entries[vacant_index] = MaybeUninit::new(ScoredEntry { child_position, score});
+        self.entries[vacant_index] = MaybeUninit::new(ScoredEntry {
+            child_position,
+            score,
+        });
         self.end_exclusive += 1;
     }
 }
@@ -99,17 +110,18 @@ impl DoubleEndedIterator for ScoredPositionIterator {
         if self.start_inclusive == self.end_exclusive {
             None
         } else {
-            let next = Some(unsafe { self.entries[self.start_inclusive as usize].assume_init() }.child_position);
+            let next = Some(
+                unsafe { self.entries[self.start_inclusive as usize].assume_init() }.child_position,
+            );
             self.start_inclusive += 1;
-            return next
+            return next;
         }
-    } 
+    }
 }
 
 impl ExactSizeIterator for ScoredPositionIterator {
     // len() automatically grabs the lower bound from size_hint(), which is the exact size
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -118,11 +130,13 @@ mod tests {
     use super::*;
 
     fn get_single_square_positions() -> Vec<Position> {
-        (0..GAME_WIDTH).map(|col| {
-            let mut single_square_position = BLANK_POSITION;
-            single_square_position.play_column(col);
-            single_square_position
-        }).collect()
+        (0..GAME_WIDTH)
+            .map(|col| {
+                let mut single_square_position = BLANK_POSITION;
+                single_square_position.play_column(col);
+                single_square_position
+            })
+            .collect()
     }
 
     // Tests that the iterator returns results then repeatedly returns None
@@ -228,13 +242,34 @@ mod tests {
             scored_position_iterator.add(input_positions[i], scores[i]);
         }
 
-        assert_eq!(Some(input_positions[6]), scored_position_iterator.next_back()); // score 1
-        assert_eq!(Some(input_positions[1]), scored_position_iterator.next_back()); // score 2
-        assert_eq!(Some(input_positions[0]), scored_position_iterator.next_back()); // score 3
-        assert_eq!(Some(input_positions[5]), scored_position_iterator.next_back()); // score 4
-        assert_eq!(Some(input_positions[4]), scored_position_iterator.next_back()); // score 5
-        assert_eq!(Some(input_positions[2]), scored_position_iterator.next_back()); // score 6
-        assert_eq!(Some(input_positions[3]), scored_position_iterator.next_back()); // score 7
+        assert_eq!(
+            Some(input_positions[6]),
+            scored_position_iterator.next_back()
+        ); // score 1
+        assert_eq!(
+            Some(input_positions[1]),
+            scored_position_iterator.next_back()
+        ); // score 2
+        assert_eq!(
+            Some(input_positions[0]),
+            scored_position_iterator.next_back()
+        ); // score 3
+        assert_eq!(
+            Some(input_positions[5]),
+            scored_position_iterator.next_back()
+        ); // score 4
+        assert_eq!(
+            Some(input_positions[4]),
+            scored_position_iterator.next_back()
+        ); // score 5
+        assert_eq!(
+            Some(input_positions[2]),
+            scored_position_iterator.next_back()
+        ); // score 6
+        assert_eq!(
+            Some(input_positions[3]),
+            scored_position_iterator.next_back()
+        ); // score 7
         assert_eq!(None, scored_position_iterator.next_back());
     }
 
@@ -309,13 +344,22 @@ mod tests {
         }
 
         // Alternate: best, worst, best, worst...
-        assert_eq!(Some(input_positions[3]), scored_position_iterator.next());   // best: 7
-        assert_eq!(Some(input_positions[6]), scored_position_iterator.next_back()); // worst: 1
-        assert_eq!(Some(input_positions[2]), scored_position_iterator.next());   // best: 6
-        assert_eq!(Some(input_positions[1]), scored_position_iterator.next_back()); // worst: 2
-        assert_eq!(Some(input_positions[4]), scored_position_iterator.next());   // best: 5
-        assert_eq!(Some(input_positions[0]), scored_position_iterator.next_back()); // worst: 3
-        assert_eq!(Some(input_positions[5]), scored_position_iterator.next());   // last: 4
+        assert_eq!(Some(input_positions[3]), scored_position_iterator.next()); // best: 7
+        assert_eq!(
+            Some(input_positions[6]),
+            scored_position_iterator.next_back()
+        ); // worst: 1
+        assert_eq!(Some(input_positions[2]), scored_position_iterator.next()); // best: 6
+        assert_eq!(
+            Some(input_positions[1]),
+            scored_position_iterator.next_back()
+        ); // worst: 2
+        assert_eq!(Some(input_positions[4]), scored_position_iterator.next()); // best: 5
+        assert_eq!(
+            Some(input_positions[0]),
+            scored_position_iterator.next_back()
+        ); // worst: 3
+        assert_eq!(Some(input_positions[5]), scored_position_iterator.next()); // last: 4
         assert_eq!(None, scored_position_iterator.next());
         assert_eq!(None, scored_position_iterator.next_back());
     }
@@ -337,7 +381,10 @@ mod tests {
 
         // Test next_back returns in insertion order (FIFO from front)
         for i in 0..GAME_WIDTH as usize {
-            assert_eq!(Some(input_positions[i]), scored_position_iterator.next_back());
+            assert_eq!(
+                Some(input_positions[i]),
+                scored_position_iterator.next_back()
+            );
         }
         assert_eq!(None, scored_position_iterator.next_back());
     }

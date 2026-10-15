@@ -35,7 +35,6 @@ const _: () = {
 };
 const TABLE_SIZE: usize = TABLE_SIZE_U32 as usize;
 
-
 // Being prime also allows the Chinese Remainder Theorem to apply
 // It ensures that the there are no collisions between two full keys where:
 // full_key_a != full_key_b
@@ -50,14 +49,12 @@ const _: () = {
     );
 };
 
-
 pub type TableValue = u8;
 
 const STORED_UPPER_BOUND_OFFSET: u8 = 1 + NEGATED_MINIMUM_SCORE;
 const MAX_STORED_UPPER_BOUND: u8 = MAXIMUM_SCORE + STORED_UPPER_BOUND_OFFSET;
 const STORED_LOWER_BOUND_OFFSET: u8 = MAX_STORED_UPPER_BOUND + 1 + NEGATED_MINIMUM_SCORE;
 const MAX_STORED_LOWER_BOUND: u8 = MAXIMUM_SCORE + STORED_LOWER_BOUND_OFFSET;
-
 
 #[derive(Clone, Copy)]
 pub struct TableKey {
@@ -118,21 +115,23 @@ impl TranspositionTable {
         let saved_value = self.saved_values[table_key.table_index as usize].get();
         match saved_value {
             0 => TableResult::Miss,
-            1..=MAX_STORED_UPPER_BOUND => TableResult::UpperBound(
-                saved_value as i8 - STORED_UPPER_BOUND_OFFSET as i8
-            ),
+            1..=MAX_STORED_UPPER_BOUND => {
+                TableResult::UpperBound(saved_value as i8 - STORED_UPPER_BOUND_OFFSET as i8)
+            }
             _ => {
                 debug_assert!(saved_value <= MAX_STORED_LOWER_BOUND);
-                TableResult::LowerBound(
-                    saved_value as i8 - STORED_LOWER_BOUND_OFFSET as i8
-                )
+                TableResult::LowerBound(saved_value as i8 - STORED_LOWER_BOUND_OFFSET as i8)
             }
         }
     }
 
     pub fn reset(&self) {
-        for truncated_key in &self.truncated_keys { truncated_key.set(0); };
-        for saved_value in &self.saved_values { saved_value.set(0); };
+        for truncated_key in &self.truncated_keys {
+            truncated_key.set(0);
+        }
+        for saved_value in &self.saved_values {
+            saved_value.set(0);
+        }
     }
 }
 
@@ -140,34 +139,40 @@ impl TranspositionTable {
 mod tests {
     use super::*;
 
-	#[test]
+    #[test]
     fn test_table_is_initially_empty() {
         let table = TranspositionTable::new();
         let dummy_table_key = TableKey::from(0);
         assert_eq!(TableResult::Miss, table.get(dummy_table_key));
     }
 
-	#[test]
+    #[test]
     fn test_put_and_get_lower_bound() {
         let table = TranspositionTable::new();
         let dummy_table_key = TableKey::from(0);
         let dummy_bound = 1;
 
         table.put_lower_bound(dummy_table_key, dummy_bound);
-        assert_eq!(TableResult::LowerBound(dummy_bound), table.get(dummy_table_key));
+        assert_eq!(
+            TableResult::LowerBound(dummy_bound),
+            table.get(dummy_table_key)
+        );
     }
 
-	#[test]
+    #[test]
     fn test_put_and_get_upper_bound() {
         let table = TranspositionTable::new();
         let dummy_table_key = TableKey::from(0);
         let dummy_bound = 1;
 
         table.put_upper_bound(dummy_table_key, dummy_bound);
-        assert_eq!(TableResult::UpperBound(dummy_bound), table.get(dummy_table_key));
+        assert_eq!(
+            TableResult::UpperBound(dummy_bound),
+            table.get(dummy_table_key)
+        );
     }
 
-	#[test]
+    #[test]
     fn test_collision_picks_later() {
         let table = TranspositionTable::new();
         let dummy_table_key = TableKey::from(0);
@@ -175,20 +180,29 @@ mod tests {
 
         table.put_lower_bound(dummy_table_key, dummy_bound);
         table.put_upper_bound(dummy_table_key, dummy_bound);
-        assert_eq!(TableResult::UpperBound(dummy_bound), table.get(dummy_table_key));
+        assert_eq!(
+            TableResult::UpperBound(dummy_bound),
+            table.get(dummy_table_key)
+        );
 
         table.put_lower_bound(dummy_table_key, dummy_bound);
-        assert_eq!(TableResult::LowerBound(dummy_bound), table.get(dummy_table_key));
+        assert_eq!(
+            TableResult::LowerBound(dummy_bound),
+            table.get(dummy_table_key)
+        );
     }
 
-	#[test]
+    #[test]
     fn test_reset_causes_miss() {
         let table = TranspositionTable::new();
         let dummy_table_key = TableKey::from(0);
         let dummy_bound = 1;
 
         table.put_lower_bound(dummy_table_key, dummy_bound);
-        assert_eq!(TableResult::LowerBound(dummy_bound), table.get(dummy_table_key));
+        assert_eq!(
+            TableResult::LowerBound(dummy_bound),
+            table.get(dummy_table_key)
+        );
 
         table.reset();
         assert_eq!(TableResult::Miss, table.get(dummy_table_key));

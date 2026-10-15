@@ -3,12 +3,12 @@ mod live_evaluation;
 
 use std::time::SystemTime;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use board::Position;
 
 use crate::{board::PlayColumnError, live_evaluation::Solver};
 
-fn main() -> Result<()>{
+fn main() -> Result<()> {
     let solver = Solver::new();
 
     println!("columns,score,nodes,time_us");
@@ -24,14 +24,24 @@ fn main() -> Result<()>{
         if expected_eval != actual_eval {
             bail!(
                 "Expected and actual evaluations differ. Input line: {}, actual_eval: {}, position: {}",
-                line, actual_eval, position);
+                line,
+                actual_eval,
+                position
+            );
         }
 
-        let duration_micros = end.duration_since(start)
+        let duration_micros = end
+            .duration_since(start)
             .with_context(|| format!("Got negative time duration after evaluating {}", line))?
             .as_micros();
 
-        println!("{},{},{},{}", columns, actual_eval, solver.node_count.get(), duration_micros);
+        println!(
+            "{},{},{},{}",
+            columns,
+            actual_eval,
+            solver.node_count.get(),
+            duration_micros
+        );
 
         solver.reset();
     }
@@ -39,18 +49,29 @@ fn main() -> Result<()>{
     Ok(())
 }
 
-
 fn parse_line(line: &str) -> Result<(Position, &str, i8)> {
     let mut position = Position::new_blank_game();
 
-    let (columns, eval) = line.split_once(' ')
+    let (columns, eval) = line
+        .split_once(' ')
         .with_context(|| format!("Did not find a space in line: {}", line))?;
 
     for column_char in columns.chars() {
-        let column: u8 = column_char.to_digit(10)
-            .with_context(|| format!("Input character: {} could be be converted to a digit", column_char))?
+        let column: u8 = column_char
+            .to_digit(10)
+            .with_context(|| {
+                format!(
+                    "Input character: {} could be be converted to a digit",
+                    column_char
+                )
+            })?
             .try_into()
-            .with_context(|| format!("Input character: {} could be be reduced from a u32", column_char))?;
+            .with_context(|| {
+                format!(
+                    "Input character: {} could be be reduced from a u32",
+                    column_char
+                )
+            })?;
 
         // File uses 1 based indexing
         position.play_column(column - 1)?;

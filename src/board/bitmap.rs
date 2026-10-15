@@ -19,7 +19,6 @@ pub(crate) const BOTTOM_ROW_MASK: Bitmap = {
 };
 pub(crate) const PLAYABLE_BOARD_MASK: Bitmap = BOTTOM_ROW_MASK * ((1 << GAME_HEIGHT) - 1);
 
-
 pub(crate) fn compute_bottom_of_column_mask(col: u8) -> Bitmap {
     1 << col * BITMAP_COLUMN_HEIGHT
 }
@@ -50,4 +49,3 @@ mod tests {
         assert_eq!(0x7E00000, compute_playable_column_mask(3));
     }
 }
-

@@ -3,8 +3,10 @@ use std::fmt::Display;
 
 use thiserror::Error;
 
-use crate::board::bitmap::{BITMAP_COLUMN_HEIGHT, DOWN_LEFT_UP_RIGHT_OFFSET, UP_LEFT_DOWN_RIGHT_OFFSET};
-use crate::board::{bitmap, Bitmap, Position, GAME_HEIGHT, GAME_WIDTH};
+use crate::board::bitmap::{
+    BITMAP_COLUMN_HEIGHT, DOWN_LEFT_UP_RIGHT_OFFSET, UP_LEFT_DOWN_RIGHT_OFFSET,
+};
+use crate::board::{Bitmap, GAME_HEIGHT, GAME_WIDTH, Position, bitmap};
 
 /* TODO: Expose an interface where you can play a column without flipping colors
 - Probably best if this is an illusion provided by the display methods and the solver
@@ -44,7 +46,6 @@ impl PlayColumnError {
     }
 }
 
-
 // Meant to be used when playing the game interactively
 impl Position {
     pub fn get_game_state(&self) -> GameState {
@@ -75,7 +76,8 @@ impl Position {
         }
 
         self.current_player_stones ^= self.both_players_mask;
-        self.both_players_mask |= self.both_players_mask + bitmap::compute_bottom_of_column_mask(column);
+        self.both_players_mask |=
+            self.both_players_mask + bitmap::compute_bottom_of_column_mask(column);
         self.moves_played += 1;
 
         Ok(())
@@ -108,48 +110,65 @@ impl Position {
 
 #[cfg(test)]
 mod tests {
-    use crate::board::{testing_constants::{BLANK_POSITION, COMPLEX_POSITION}, GAME_WIDTH};
+    use crate::board::{
+        GAME_WIDTH,
+        testing_constants::{BLANK_POSITION, COMPLEX_POSITION},
+    };
 
     use super::*;
 
-	#[test]
-	fn test_prior_player_has_won() {
-		// First show that neither player won the complex position prior to these moves
-		assert!(!Position::position_has_connect_four(COMPLEX_POSITION.current_player_stones));
-		assert!(!Position::position_has_connect_four(COMPLEX_POSITION.current_player_stones ^ COMPLEX_POSITION.both_players_mask));
+    #[test]
+    fn test_prior_player_has_won() {
+        // First show that neither player won the complex position prior to these moves
+        assert!(!Position::position_has_connect_four(
+            COMPLEX_POSITION.current_player_stones
+        ));
+        assert!(!Position::position_has_connect_four(
+            COMPLEX_POSITION.current_player_stones ^ COMPLEX_POSITION.both_players_mask
+        ));
 
-		let mut vertical_complex_win = COMPLEX_POSITION;
-		vertical_complex_win.play_column(1);
-		assert!(vertical_complex_win.get_game_state() == GameState::Ended(EndState::PriorPlayerWon));
+        let mut vertical_complex_win = COMPLEX_POSITION;
+        vertical_complex_win.play_column(1);
+        assert!(
+            vertical_complex_win.get_game_state() == GameState::Ended(EndState::PriorPlayerWon)
+        );
 
-		let mut horizontal_complex_win = COMPLEX_POSITION;
-		horizontal_complex_win.play_column(0);
-		assert!(horizontal_complex_win.get_game_state() == GameState::Ended(EndState::PriorPlayerWon));
+        let mut horizontal_complex_win = COMPLEX_POSITION;
+        horizontal_complex_win.play_column(0);
+        assert!(
+            horizontal_complex_win.get_game_state() == GameState::Ended(EndState::PriorPlayerWon)
+        );
 
-		let mut up_left_down_right_diagonal_win = COMPLEX_POSITION;
-		up_left_down_right_diagonal_win.play_column(6);
-		assert!(up_left_down_right_diagonal_win.get_game_state() == GameState::Ended(EndState::PriorPlayerWon));
+        let mut up_left_down_right_diagonal_win = COMPLEX_POSITION;
+        up_left_down_right_diagonal_win.play_column(6);
+        assert!(
+            up_left_down_right_diagonal_win.get_game_state()
+                == GameState::Ended(EndState::PriorPlayerWon)
+        );
 
-		let mut down_left_up_right_diagonal_win = COMPLEX_POSITION;
-		down_left_up_right_diagonal_win.play_column(4);
-		assert!(down_left_up_right_diagonal_win.get_game_state() == GameState::Ended(EndState::PriorPlayerWon));
-	}
+        let mut down_left_up_right_diagonal_win = COMPLEX_POSITION;
+        down_left_up_right_diagonal_win.play_column(4);
+        assert!(
+            down_left_up_right_diagonal_win.get_game_state()
+                == GameState::Ended(EndState::PriorPlayerWon)
+        );
+    }
 
-	#[test]
+    #[test]
     fn test_can_play_blank() {
         let all_true = [true; GAME_WIDTH as usize];
         let actual = std::array::from_fn(|col| BLANK_POSITION.column_is_open(col as u8));
         assert_eq!(all_true, actual);
     }
 
-	#[test]
+    #[test]
     fn test_can_play_complex() {
         let all_columns_except_one = [true, true, false, true, true, true, true];
         let actual = std::array::from_fn(|col| COMPLEX_POSITION.column_is_open(col as u8));
         assert_eq!(all_columns_except_one, actual);
     }
 
-	#[test]
+    #[test]
     fn test_is_winning_move_complex() {
         let expected = [true, true, false, false, true, false, true];
         let actual = std::array::from_fn(|col| {
@@ -160,7 +179,7 @@ mod tests {
         assert_eq!(expected, actual);
     }
 
-	#[test]
+    #[test]
     fn test_blank_has_no_winning_moves() {
         let all_false = [false; GAME_WIDTH as usize];
         let actual = std::array::from_fn(|col| {
@@ -177,7 +196,9 @@ mod tests {
 
         let mut plays_winning_column = either_player_can_win;
         plays_winning_column.play_column(0);
-        assert!(plays_winning_column.get_game_state() == GameState::Ended(EndState::PriorPlayerWon));
+        assert!(
+            plays_winning_column.get_game_state() == GameState::Ended(EndState::PriorPlayerWon)
+        );
 
         let mut plays_losing_column = either_player_can_win;
         plays_losing_column.play_column(3);

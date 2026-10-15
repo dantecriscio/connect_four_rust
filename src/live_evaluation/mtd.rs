@@ -1,15 +1,13 @@
 use std::cell::Cell;
 
-use crate::board::{Position, GAME_HEIGHT, GAME_WIDTH};
-use crate::live_evaluation::transposition_table::TranspositionTable;
+use crate::board::{GAME_HEIGHT, GAME_WIDTH, Position};
 use crate::live_evaluation::null_window_search::NullWindowSearch;
+use crate::live_evaluation::transposition_table::TranspositionTable;
 
 pub(crate) const MAXIMUM_SCORE: u8 = (GAME_WIDTH * GAME_HEIGHT + 1) / 2 - 3;
 pub(crate) const NEGATED_MINIMUM_SCORE: u8 = GAME_WIDTH * GAME_HEIGHT / 2 - 3;
 
 pub(crate) const MAX_MOVES_PLAYED: i8 = (GAME_WIDTH * GAME_HEIGHT) as i8;
-
-
 
 /// Theoretically similar to https://www.chessprogramming.org/MTD(f) but without the f parameter
 /// Also see mtdf.md for more information
@@ -20,7 +18,10 @@ pub struct Solver {
 
 impl Solver {
     pub fn new() -> Self {
-        Self { transposition_table: TranspositionTable::new(), node_count: Cell::new(0) }
+        Self {
+            transposition_table: TranspositionTable::new(),
+            node_count: Cell::new(0),
+        }
     }
 
     pub fn reset(&self) {
@@ -51,7 +52,6 @@ impl Solver {
         let mut min = -(MAX_MOVES_PLAYED - position.moves_played as i8) / 2;
         let mut max = (MAX_MOVES_PLAYED - position.moves_played as i8 + 1) / 2;
 
-
         while min < max {
             /* This is the true middle value between max and min
             We do this instead of (min + max) / 2, because we want the floor division to always
@@ -65,8 +65,7 @@ impl Solver {
             So, if this happens, we set middle = max /2, or middle = min / 2 */
             if middle <= 0 && min / 2 < middle {
                 middle = min / 2;
-            }
-            else if middle >= 0 && max / 2 > middle {
+            } else if middle >= 0 && max / 2 > middle {
                 middle = max / 2;
             }
 
@@ -75,8 +74,7 @@ impl Solver {
             // This result tells us if the true position score is <= or >= middle
             if result <= middle {
                 max = result;
-            }
-            else {
+            } else {
                 min = result;
             }
         }
@@ -84,4 +82,3 @@ impl Solver {
         min
     }
 }
-
