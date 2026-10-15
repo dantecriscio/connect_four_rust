@@ -49,41 +49,65 @@ struct ScoredEntry {
 
 pub(crate) struct ScoredPositionIterator {
     entries: [MaybeUninit<ScoredEntry>; GAME_WIDTH as usize],
-    size: u8,
+    start_inclusive: u8,
+    end_exclusive: u8,
 }
 
 impl ScoredPositionIterator {
     pub(crate) fn new() -> Self {
-        Self { entries: [MaybeUninit::uninit(); GAME_WIDTH as usize], size: 0 }
+        Self { entries: [MaybeUninit::uninit(); GAME_WIDTH as usize], start_inclusive: 0, end_exclusive: 0 }
     }
 
     pub(crate) fn add(&mut self, child_position: Position, score: u8) {
         // The index we are looking at (initially, the first empty index)
-        let mut vacant_index = self.size as usize;
+        let mut vacant_index = self.end_exclusive as usize;
 
         // As long as the previous entry is strictly bigger, shift that right once
-        while vacant_index != 0 && unsafe { self.entries[vacant_index - 1].assume_init().score } > score {
+        while vacant_index > self.start_inclusive as usize && unsafe { self.entries[vacant_index - 1].assume_init().score } > score {
             self.entries[vacant_index] = self.entries[vacant_index - 1];
             vacant_index -= 1;
         }
 
         // Place our entry at the now empty spot
         self.entries[vacant_index] = MaybeUninit::new(ScoredEntry { child_position, score});
-        self.size += 1;
+        self.end_exclusive += 1;
     }
 }
 
 impl Iterator for ScoredPositionIterator {
     type Item = Position;
 
+    /// Gets the next best child
     fn next(&mut self) -> Option<Self::Item> {
-        if self.size == 0 {
+        if self.end_exclusive == self.start_inclusive {
             None
         } else {
-            self.size -= 1;
-            Some(unsafe { self.entries[self.size as usize].assume_init() }.child_position)
+            self.end_exclusive -= 1;
+            Some(unsafe { self.entries[self.end_exclusive as usize].assume_init() }.child_position)
         }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let exact_size = (self.end_exclusive - self.start_inclusive) as usize;
+        (exact_size, Some(exact_size))
+    }
+}
+
+impl DoubleEndedIterator for ScoredPositionIterator {
+    /// Gets the next worst child
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.start_inclusive == self.end_exclusive {
+            None
+        } else {
+            let next = Some(unsafe { self.entries[self.start_inclusive as usize].assume_init() }.child_position);
+            self.start_inclusive += 1;
+            return next
+        }
+    } 
+}
+
+impl ExactSizeIterator for ScoredPositionIterator {
+    // len() automatically grabs the lower bound from size_hint(), which is the exact size
 }
 
 
@@ -188,5 +212,133 @@ mod tests {
 
         let actual_positions: Vec<Position> = scored_position_iterator.collect();
         assert_eq!(expected_output_positions, actual_positions);
+    }
+
+    // Tests the DoubleEndedIterator functionality - next_back returns worst scores first
+    #[test]
+    fn test_next_back() {
+        let input_positions = get_single_square_positions();
+        let mut scored_position_iterator = ScoredPositionIterator::new();
+
+        let scores = [3, 2, 6, 7, 5, 4, 1];
+        // Sorted descending: 7, 6, 5, 4, 3, 2, 1
+        // next_back() should return: 1, 2, 3, 4, 5, 6, 7 (worst to best)
+
+        for i in 0..scores.len() {
+            scored_position_iterator.add(input_positions[i], scores[i]);
+        }
+
+        assert_eq!(Some(input_positions[6]), scored_position_iterator.next_back()); // score 1
+        assert_eq!(Some(input_positions[1]), scored_position_iterator.next_back()); // score 2
+        assert_eq!(Some(input_positions[0]), scored_position_iterator.next_back()); // score 3
+        assert_eq!(Some(input_positions[5]), scored_position_iterator.next_back()); // score 4
+        assert_eq!(Some(input_positions[4]), scored_position_iterator.next_back()); // score 5
+        assert_eq!(Some(input_positions[2]), scored_position_iterator.next_back()); // score 6
+        assert_eq!(Some(input_positions[3]), scored_position_iterator.next_back()); // score 7
+        assert_eq!(None, scored_position_iterator.next_back());
+    }
+
+    // Tests ExactSizeIterator::len() functionality
+    #[test]
+    fn test_len() {
+        let input_positions = get_single_square_positions();
+        let mut scored_position_iterator = ScoredPositionIterator::new();
+
+        assert_eq!(0, scored_position_iterator.len());
+
+        scored_position_iterator.add(input_positions[0], 5);
+        assert_eq!(1, scored_position_iterator.len());
+
+        scored_position_iterator.add(input_positions[1], 3);
+        assert_eq!(2, scored_position_iterator.len());
+
+        scored_position_iterator.add(input_positions[2], 7);
+        assert_eq!(3, scored_position_iterator.len());
+
+        // Consume one from front
+        scored_position_iterator.next_back();
+        assert_eq!(2, scored_position_iterator.len());
+
+        // Consume one from back
+        scored_position_iterator.next();
+        assert_eq!(1, scored_position_iterator.len());
+
+        scored_position_iterator.next();
+        assert_eq!(0, scored_position_iterator.len());
+    }
+
+    // Tests size_hint returns exact bounds
+    #[test]
+    fn test_size_hint() {
+        let input_positions = get_single_square_positions();
+        let mut scored_position_iterator = ScoredPositionIterator::new();
+
+        let (lower, upper) = scored_position_iterator.size_hint();
+        assert_eq!((0, Some(0)), (lower, upper));
+
+        scored_position_iterator.add(input_positions[0], 5);
+        let (lower, upper) = scored_position_iterator.size_hint();
+        assert_eq!((1, Some(1)), (lower, upper));
+
+        scored_position_iterator.add(input_positions[1], 3);
+        let (lower, upper) = scored_position_iterator.size_hint();
+        assert_eq!((2, Some(2)), (lower, upper));
+
+        // After consuming from back
+        scored_position_iterator.next();
+        let (lower, upper) = scored_position_iterator.size_hint();
+        assert_eq!((1, Some(1)), (lower, upper));
+
+        // After consuming from front
+        scored_position_iterator.next_back();
+        let (lower, upper) = scored_position_iterator.size_hint();
+        assert_eq!((0, Some(0)), (lower, upper));
+    }
+
+    // Tests mixed next() and next_back() iteration
+    #[test]
+    fn test_mixed_iteration() {
+        let input_positions = get_single_square_positions();
+        let mut scored_position_iterator = ScoredPositionIterator::new();
+
+        let scores = [3, 2, 6, 7, 5, 4, 1];
+        // Sorted descending: 7(idx3), 6(idx2), 5(idx4), 4(idx5), 3(idx0), 2(idx1), 1(idx6)
+
+        for i in 0..scores.len() {
+            scored_position_iterator.add(input_positions[i], scores[i]);
+        }
+
+        // Alternate: best, worst, best, worst...
+        assert_eq!(Some(input_positions[3]), scored_position_iterator.next());   // best: 7
+        assert_eq!(Some(input_positions[6]), scored_position_iterator.next_back()); // worst: 1
+        assert_eq!(Some(input_positions[2]), scored_position_iterator.next());   // best: 6
+        assert_eq!(Some(input_positions[1]), scored_position_iterator.next_back()); // worst: 2
+        assert_eq!(Some(input_positions[4]), scored_position_iterator.next());   // best: 5
+        assert_eq!(Some(input_positions[0]), scored_position_iterator.next_back()); // worst: 3
+        assert_eq!(Some(input_positions[5]), scored_position_iterator.next());   // last: 4
+        assert_eq!(None, scored_position_iterator.next());
+        assert_eq!(None, scored_position_iterator.next_back());
+    }
+
+    // Tests that ties are handled correctly with next_back (stack behavior for ties)
+    #[test]
+    fn test_next_back_with_ties() {
+        let input_positions = get_single_square_positions();
+        let mut scored_position_iterator = ScoredPositionIterator::new();
+
+        // All same score - should act as stack for both next() and next_back()
+        // Added in order: 0, 1, 2, 3, 4, 5, 6
+        // next() returns: 6, 5, 4, 3, 2, 1, 0 (LIFO - stack)
+        // next_back() returns: 0, 1, 2, 3, 4, 5, 6 (FIFO - queue from front)
+
+        for i in 0..GAME_WIDTH as usize {
+            scored_position_iterator.add(input_positions[i], 5);
+        }
+
+        // Test next_back returns in insertion order (FIFO from front)
+        for i in 0..GAME_WIDTH as usize {
+            assert_eq!(Some(input_positions[i]), scored_position_iterator.next_back());
+        }
+        assert_eq!(None, scored_position_iterator.next_back());
     }
 }

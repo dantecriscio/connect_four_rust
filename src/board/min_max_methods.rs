@@ -32,7 +32,7 @@ impl Position {
         let mut sorted_child_position_iterator = ScoredPositionIterator::new();
 
         // Iterate through each column in columnOrder in reverse order, adding to the sorter
-        // We go through in reverse order because liveSolverClasses.MoveSorter is a stack in the case of ties
+        // We go through in reverse order because ScoredPositionIterator is a stack in the case of ties
         for col in OUTSIDE_IN_COLUMN_ORDER {
             let non_losing_square = non_losing & bitmap::compute_playable_column_mask(col);
             if non_losing_square != 0 {
