@@ -9,3 +9,7 @@ edition = "2024"
 thiserror = "2"
 anyhow = "1.0"
 
+[profile.profiling]
+inherits = "release"
+debug = true
+
