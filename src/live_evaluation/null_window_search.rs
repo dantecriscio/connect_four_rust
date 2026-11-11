@@ -79,8 +79,8 @@ impl NullWindowSearch<'_> {
         }
 
         // The recursive cases
-        for child_position in position.get_sorted_child_positions(non_losing) {
-            let score = -self.search(child_position, -(alpha + 1));
+        for scored_child in position.get_sorted_child_positions(non_losing).get_slice() {
+            let score = -self.search(scored_child.child_position, -(alpha + 1));
             // Pruning case
             if score > alpha {
                 self.transposition_table.put_lower_bound(table_key, score);

@@ -2,7 +2,7 @@ use crate::board::bitmap::{
     BITMAP_COLUMN_HEIGHT, BOTTOM_ROW_MASK, DOWN_LEFT_UP_RIGHT_OFFSET, PLAYABLE_BOARD_MASK,
     UP_LEFT_DOWN_RIGHT_OFFSET,
 };
-use crate::board::scored_position_iterator::{OUTSIDE_IN_COLUMN_ORDER, ScoredPositionIterator};
+use crate::board::scored_position_iterator::{ScoredPositionSorter, INSIDE_OUT_COLUMN_ORDER};
 use crate::board::{Bitmap, Position, bitmap};
 
 // Directly called by the null window search
@@ -31,12 +31,11 @@ impl Position {
         possible_moves & !(opponent_win_squares >> 1)
     }
 
-    pub(crate) fn get_sorted_child_positions(&self, non_losing: Bitmap) -> ScoredPositionIterator {
-        let mut sorted_child_position_iterator = ScoredPositionIterator::new();
+    pub(crate) fn get_sorted_child_positions(&self, non_losing: Bitmap) -> ScoredPositionSorter {
+        let mut sorted_child_position_iterator = ScoredPositionSorter::new();
 
-        // Iterate through each column in columnOrder in reverse order, adding to the sorter
-        // We go through in reverse order because ScoredPositionIterator is a stack in the case of ties
-        for col in OUTSIDE_IN_COLUMN_ORDER {
+        // We go through in INSIDE_OUT_COLUMN_ORDER because ScoredPositionSorter is FIFO in the case of ties
+        for col in INSIDE_OUT_COLUMN_ORDER {
             let non_losing_square = non_losing & bitmap::compute_playable_column_mask(col);
             if non_losing_square != 0 {
                 let score = self.move_score(non_losing_square);
@@ -149,12 +148,12 @@ impl Position {
 
 #[cfg(test)]
 mod tests {
+    use crate::board::gameplay_methods::{EndState, GameState};
     use crate::board::scored_position_iterator::INSIDE_OUT_COLUMN_ORDER;
     use crate::board::testing_constants::{
         BLANK_POSITION, COMPLEX_POSITION, DOWN_LEFT_UP_RIGHT_DIAGONAL, HORIZONTAL,
         MIDDLE_COLUMN_FULL, PRE_HORIZONTAL, UP_LEFT_DOWN_RIGHT_DIAGONAL, VERTICAL,
     };
-    use crate::board::{EndState, GameState};
 
     use super::*;
 
@@ -304,8 +303,9 @@ mod tests {
                 first_move_played
             })
             .collect();
-        let actual: Vec<Position> = BLANK_POSITION
-            .get_sorted_child_positions(BLANK_POSITION.get_possible_non_losing_moves())
+        let sorted_child_positions = BLANK_POSITION.get_sorted_child_positions(BLANK_POSITION.get_possible_non_losing_moves());
+        let actual: Vec<Position> = sorted_child_positions.get_slice().iter()
+            .map(|entry| entry.child_position)
             .collect();
         assert_eq!(expected_middle_out, actual);
     }
@@ -322,8 +322,9 @@ mod tests {
                 fifth_move_played
             })
             .collect();
-        let actual: Vec<Position> = PRE_HORIZONTAL
-            .get_sorted_child_positions(PRE_HORIZONTAL.get_possible_non_losing_moves())
+        let sorted_child_positions = PRE_HORIZONTAL.get_sorted_child_positions(PRE_HORIZONTAL.get_possible_non_losing_moves());
+        let actual: Vec<Position> = sorted_child_positions.get_slice().iter()
+            .map(|entry| entry.child_position)
             .collect();
         assert_eq!(expected_child_positions, actual);
     }
@@ -340,8 +341,9 @@ mod tests {
                 seventh_move_played
             })
             .collect();
-        let actual: Vec<Position> = MIDDLE_COLUMN_FULL
-            .get_sorted_child_positions(MIDDLE_COLUMN_FULL.get_possible_non_losing_moves())
+        let sorted_child_positions = MIDDLE_COLUMN_FULL.get_sorted_child_positions(MIDDLE_COLUMN_FULL.get_possible_non_losing_moves());
+        let actual: Vec<Position> = sorted_child_positions.get_slice().iter()
+            .map(|entry| entry.child_position)
             .collect();
         assert_eq!(expected_child_positions, actual);
     }
