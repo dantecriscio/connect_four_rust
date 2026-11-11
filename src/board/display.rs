@@ -88,6 +88,12 @@ impl fmt::Debug for Position {
 }
 
 impl Position {
+    /// Indices of every square that is part of a connect four made by the player who just moved.
+    /// Squares count from the top left, moving right then down. Empty if that player has not won.
+    pub fn prior_player_connect_four_indices(&self) -> Vec<u8> {
+        Self::to_connect_four_indices(self.current_player_stones ^ self.both_players_mask)
+    }
+
     fn to_connect_four_indices(current_player_stones: Bitmap) -> Vec<u8> {
         let mut connect_four_bitmap = 0; // Bitmap with ones everywhere that connect 4 or more has happened
 

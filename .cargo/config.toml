@@ -1,0 +1,3 @@
+[alias]
+# `cargo server` builds and starts the web server, e.g. `cargo server -- --port 9000`
+server = "run --release --bin web-server"
