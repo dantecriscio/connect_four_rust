@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::board::{GAME_HEIGHT, GAME_WIDTH, Position};
 use crate::live_evaluation::null_window_search::NullWindowSearch;
@@ -13,28 +14,28 @@ pub(crate) const MAX_MOVES_PLAYED: i8 = (GAME_WIDTH * GAME_HEIGHT) as i8;
 /// Also see mtdf.md for more information
 pub struct Solver {
     pub transposition_table: TranspositionTable,
-    pub node_count: Cell<u64>,
+    pub node_count: AtomicU64,
 }
 
 impl Solver {
     pub fn new() -> Self {
         Self {
             transposition_table: TranspositionTable::new(),
-            node_count: Cell::new(0),
+            node_count: AtomicU64::new(0),
         }
     }
 
     pub fn reset(&self) {
         self.transposition_table.reset();
-        self.node_count.set(0);
+        self.node_count.store(0, Ordering::Relaxed);
     }
 
     /// Evaluates the score a position
     ///
-    /// # Assumptions:
+    /// Assumptions:
     /// - No one has already won the game
     ///
-    /// # Return Value:
+    /// Return Value:
     /// - Exact Score of the position
     pub fn solve(&self, position: Position) -> i8 {
         let null_window_search = NullWindowSearch {

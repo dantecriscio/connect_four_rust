@@ -4,6 +4,7 @@ mod live_evaluation;
 use std::time::SystemTime;
 
 use anyhow::{Context, Result, bail};
+use std::sync::atomic::Ordering;
 use board::Position;
 
 use crate::{board::PlayColumnError, live_evaluation::Solver};
@@ -39,7 +40,7 @@ fn main() -> Result<()> {
             "{},{},{},{}",
             columns,
             actual_eval,
-            solver.node_count.get(),
+            solver.node_count.load(Ordering::Relaxed),
             duration_micros
         );
 

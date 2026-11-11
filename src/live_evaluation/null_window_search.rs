@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::board::Position;
 use crate::live_evaluation::mtd::MAX_MOVES_PLAYED;
@@ -8,7 +9,7 @@ use crate::live_evaluation::transposition_table::{TableKey, TableResult, Transpo
 /// Alpha-Beta pruning (negamax variant) where (alpha + 1 = beta).
 pub(crate) struct NullWindowSearch<'a> {
     pub(crate) transposition_table: &'a TranspositionTable,
-    pub(crate) node_count: &'a Cell<u64>,
+    pub(crate) node_count: &'a AtomicU64,
 }
 
 /*
@@ -28,17 +29,17 @@ TODO: Also consider consider swapping the upper bound encoding and the lower bou
     Will need to time it. Pretty sure it is more common to have an lower bound.
 */
 impl NullWindowSearch<'_> {
-    /// Evaluates the score a position using alpha beta, algorithm.
+    /// Evaluates the score a position using alpha beta search.
     /// But, it assumes a null window, so `beta == alpha + 1`
     ///
-    /// # Assumptions:
+    /// Assumptions:
     /// - Never called on a full board
     /// - No one has already won the game
     /// - The current player cannot simply win in one move
     ///
     /// See null_window.md for more information
     pub(crate) fn search(&self, position: Position, alpha: i8) -> i8 {
-        self.node_count.update(|x| x + 1);
+        self.node_count.fetch_add(1, Ordering::Relaxed);
 
         let non_losing = position.get_possible_non_losing_moves();
         if non_losing == 0 {

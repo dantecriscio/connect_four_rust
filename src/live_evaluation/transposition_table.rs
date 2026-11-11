@@ -1,6 +1,8 @@
 use std::cell::Cell;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::usize;
 
-use crate::board::bitmap::{BITMAP_COLUMN_HEIGHT, BITMAP_ROW_WIDTH};
+use crate::board::bitmap::{Bitmap, BITMAP_COLUMN_HEIGHT, BITMAP_ROW_WIDTH};
 use crate::board::key_methods::PositionKey;
 use crate::live_evaluation::mtd::{MAXIMUM_SCORE, NEGATED_MINIMUM_SCORE};
 
@@ -35,11 +37,24 @@ const _: () = {
 };
 const TABLE_SIZE: usize = TABLE_SIZE_U32 as usize;
 
-// Being prime also allows the Chinese Remainder Theorem to apply
-// It ensures that the there are no collisions between two full keys where:
-// full_key_a != full_key_b
-// truncated_key_a == truncated_key_b
-// table_index_a == table_index_b
+
+struct TableEntry(AtomicU64);
+impl TableEntry {
+    fn new_blank() -> Self {
+        Self(AtomicU64::new(0))
+    }
+
+    fn store(&self, key: Bitmap, val: u8, ordering: Ordering) {
+        self.0.store((key << 8) | (val as u64), ordering);
+    }
+
+    fn load(&self, ordering: Ordering) -> (Bitmap, u8) {
+        let entry = self.0.load(ordering);
+        (entry >> 8, entry as u8)
+    }
+}
+
+
 type TruncatedKey = u32;
 const _: () = {
     let full_key_bits = BITMAP_ROW_WIDTH * BITMAP_COLUMN_HEIGHT;
@@ -49,8 +64,6 @@ const _: () = {
     );
 };
 
-pub type TableValue = u8;
-
 const STORED_UPPER_BOUND_OFFSET: u8 = 1 + NEGATED_MINIMUM_SCORE;
 const MAX_STORED_UPPER_BOUND: u8 = MAXIMUM_SCORE + STORED_UPPER_BOUND_OFFSET;
 const STORED_LOWER_BOUND_OFFSET: u8 = MAX_STORED_UPPER_BOUND + 1 + NEGATED_MINIMUM_SCORE;
@@ -59,7 +72,7 @@ const MAX_STORED_LOWER_BOUND: u8 = MAXIMUM_SCORE + STORED_LOWER_BOUND_OFFSET;
 #[derive(Clone, Copy)]
 pub struct TableKey {
     table_index: u32,
-    truncated_key: u32,
+    full_position_key: Bitmap,
 }
 
 impl From<PositionKey> for TableKey {
@@ -69,8 +82,7 @@ impl From<PositionKey> for TableKey {
             // IMO, a u64 modulo u32 should just return a u32
             // Because modulo operations can never return anything greater than the modulus
             table_index: (position_key % TABLE_SIZE_U32 as u64) as u32,
-            // This cast does intentional truncation
-            truncated_key: position_key as TruncatedKey,
+            full_position_key: position_key,
         }
     }
 }
@@ -82,37 +94,31 @@ pub enum TableResult {
     UpperBound(i8),
 }
 
-pub struct TranspositionTable {
-    truncated_keys: Box<[Cell<TruncatedKey>]>,
-    saved_values: Box<[Cell<TableValue>]>,
-}
+pub struct TranspositionTable(Box<[TableEntry]>);
 
 impl TranspositionTable {
     pub fn new() -> Self {
-        Self {
-            truncated_keys: vec![Cell::new(0); TABLE_SIZE].into_boxed_slice(),
-            saved_values: vec![Cell::new(0); TABLE_SIZE].into_boxed_slice(),
-        }
+        Self((0..TABLE_SIZE)
+            .map(|_| TableEntry::new_blank())
+            .collect::<Vec<TableEntry>>()
+            .into_boxed_slice())
     }
 
     pub fn put_upper_bound(&self, table_key: TableKey, upper_bound: i8) {
         let saved_value = (upper_bound + STORED_UPPER_BOUND_OFFSET as i8) as u8;
-        self.truncated_keys[table_key.table_index as usize].set(table_key.truncated_key);
-        self.saved_values[table_key.table_index as usize].set(saved_value);
+        self.0[table_key.table_index as usize].store(table_key.full_position_key, saved_value, Ordering::Relaxed);
     }
 
     pub fn put_lower_bound(&self, table_key: TableKey, lower_bound: i8) {
         let saved_value = (lower_bound + STORED_LOWER_BOUND_OFFSET as i8) as u8;
-        self.truncated_keys[table_key.table_index as usize].set(table_key.truncated_key);
-        self.saved_values[table_key.table_index as usize].set(saved_value);
+        self.0[table_key.table_index as usize].store(table_key.full_position_key, saved_value, Ordering::Relaxed);
     }
 
     pub fn get(&self, table_key: TableKey) -> TableResult {
-        let saved_truncated_key = self.truncated_keys[table_key.table_index as usize].get();
-        if saved_truncated_key != table_key.truncated_key {
+        let (saved_key, saved_value) = self.0[table_key.table_index as usize].load(Ordering::Relaxed);
+        if saved_key != table_key.full_position_key {
             return TableResult::Miss;
         }
-        let saved_value = self.saved_values[table_key.table_index as usize].get();
         match saved_value {
             0 => TableResult::Miss,
             1..=MAX_STORED_UPPER_BOUND => {
@@ -126,11 +132,8 @@ impl TranspositionTable {
     }
 
     pub fn reset(&self) {
-        for truncated_key in &self.truncated_keys {
-            truncated_key.set(0);
-        }
-        for saved_value in &self.saved_values {
-            saved_value.set(0);
+        for entry in &self.0 {
+            entry.store(0, 0, Ordering::Relaxed);
         }
     }
 }
