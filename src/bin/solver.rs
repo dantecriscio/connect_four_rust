@@ -1,13 +1,12 @@
-mod board;
-mod live_evaluation;
+//! Reads lines of `<1-indexed columns> <expected score>` from stdin,
+//! solves each position, and prints CSV timing results to stdout.
 
+use std::sync::atomic::Ordering;
 use std::time::SystemTime;
 
 use anyhow::{Context, Result, bail};
-use std::sync::atomic::Ordering;
-use board::Position;
-
-use crate::{board::PlayColumnError, live_evaluation::Solver};
+use connect_four_rust::board::Position;
+use connect_four_rust::live_evaluation::Solver;
 
 fn main() -> Result<()> {
     let solver = Solver::new();

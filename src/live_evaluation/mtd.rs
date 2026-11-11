@@ -40,7 +40,7 @@ impl Solver {
     pub fn solve(&self, position: Position) -> i8 {
         let null_window_search = NullWindowSearch {
             transposition_table: &self.transposition_table,
-            node_count: &self.node_count,
+            node_count: Cell::new(0),
         };
 
         // Check if we can win in one move on this turn, as Negamax will now assume that we cannot
@@ -80,6 +80,8 @@ impl Solver {
             }
         }
         // Loop ends when min = max = true score.
+        self.node_count
+            .fetch_add(null_window_search.node_count.get(), Ordering::Relaxed);
         min
     }
 }

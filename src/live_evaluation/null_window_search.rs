@@ -1,5 +1,4 @@
 use std::cell::Cell;
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::board::Position;
 use crate::live_evaluation::mtd::MAX_MOVES_PLAYED;
@@ -9,7 +8,10 @@ use crate::live_evaluation::transposition_table::{TableKey, TableResult, Transpo
 /// Alpha-Beta pruning (negamax variant) where (alpha + 1 = beta).
 pub(crate) struct NullWindowSearch<'a> {
     pub(crate) transposition_table: &'a TranspositionTable,
-    pub(crate) node_count: &'a AtomicU64,
+    /// Nodes visited by this search only. Deliberately not shared between threads:
+    /// incrementing a shared atomic on every node makes all threads fight over one cache line.
+    /// The total is added to the solver's shared counter once, when the solve finishes.
+    pub(crate) node_count: Cell<u64>,
 }
 
 /*
@@ -39,7 +41,7 @@ impl NullWindowSearch<'_> {
     ///
     /// See null_window.md for more information
     pub(crate) fn search(&self, position: Position, alpha: i8) -> i8 {
-        self.node_count.fetch_add(1, Ordering::Relaxed);
+        self.node_count.set(self.node_count.get() + 1);
 
         let non_losing = position.get_possible_non_losing_moves();
         if non_losing == 0 {
